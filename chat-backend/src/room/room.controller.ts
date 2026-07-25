@@ -15,6 +15,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
+import { AdminGuard } from '../common/guards/admin.guard';
 import { RoomService } from './room.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { AddMemberDto } from './dto/add-member.dto';
@@ -28,17 +29,26 @@ export class RoomController {
   constructor(private readonly roomService: RoomService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new room' })
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: '[Admin] Create a new room' })
   @ApiCreatedResponse({ description: 'Room created' })
   create(@Body() dto: CreateRoomDto, @CurrentUser('id') userId: string) {
     return this.roomService.create(dto, userId);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all rooms you belong to' })
+  @ApiOperation({ summary: 'List rooms I belong to' })
   @ApiOkResponse({ description: 'List of rooms' })
   findAll(@CurrentUser('id') userId: string) {
     return this.roomService.findAll(userId);
+  }
+
+  @Get('all')
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: '[Admin] List all rooms' })
+  @ApiOkResponse({ description: 'All rooms' })
+  findAllRooms() {
+    return this.roomService.findAllRooms();
   }
 
   @Get(':id')
@@ -49,31 +59,33 @@ export class RoomController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a room' })
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: '[Admin] Delete a room' })
   @ApiOkResponse({ description: 'Room deleted' })
-  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.roomService.remove(id, userId);
+  remove(@Param('id') id: string) {
+    return this.roomService.remove(id);
   }
 
   @Post(':id/members')
-  @ApiOperation({ summary: 'Add a member to a room' })
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: '[Admin] Add a member to a room' })
   @ApiCreatedResponse({ description: 'Member added' })
-  addMember(
-    @Param('id') id: string,
-    @Body() dto: AddMemberDto,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.roomService.addMember(id, dto, userId);
+  addMember(@Param('id') id: string, @Body() dto: AddMemberDto) {
+    return this.roomService.addMember(id, dto);
+  }
+
+  @Delete(':id/leave')
+  @ApiOperation({ summary: 'Leave a room' })
+  @ApiOkResponse({ description: 'Left the room' })
+  leave(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.roomService.leave(id, userId);
   }
 
   @Delete(':id/members/:memberId')
-  @ApiOperation({ summary: 'Remove a member from a room' })
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: '[Admin] Remove a member from a room' })
   @ApiOkResponse({ description: 'Member removed' })
-  removeMember(
-    @Param('id') id: string,
-    @Param('memberId') memberId: string,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.roomService.removeMember(id, memberId, userId);
+  removeMember(@Param('id') id: string, @Param('memberId') memberId: string) {
+    return this.roomService.removeMember(id, memberId);
   }
 }
