@@ -46,6 +46,18 @@ export class RoomService {
     });
   }
 
+  async findAllRooms() {
+    return this.prisma.room.findMany({
+      include: {
+        _count: { select: { members: true, messages: true } },
+        members: {
+          include: { user: { select: { id: true, username: true, email: true } } },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
   async findOne(id: string, userId: string) {
     const room = await this.prisma.room.findUnique({
       where: { id },
@@ -68,25 +80,17 @@ export class RoomService {
     return room;
   }
 
-  async remove(id: string, userId: string) {
-    const room = await this.prisma.room.findUnique({
-      where: { id },
-      include: { members: true },
-    });
+  async remove(id: string) {
+    const room = await this.prisma.room.findUnique({ where: { id } });
 
     if (!room) {
       throw new NotFoundException('Room not found');
     }
 
-    const isMember = room.members.some((m) => m.userId === userId);
-    if (!isMember) {
-      throw new ForbiddenException('You are not a member of this room');
-    }
-
     await this.prisma.room.delete({ where: { id } });
   }
 
-  async addMember(roomId: string, dto: AddMemberDto, userId: string) {
+  async addMember(roomId: string, dto: AddMemberDto) {
     const room = await this.prisma.room.findUnique({
       where: { id: roomId },
       include: { members: true },
@@ -94,11 +98,6 @@ export class RoomService {
 
     if (!room) {
       throw new NotFoundException('Room not found');
-    }
-
-    const isMember = room.members.some((m) => m.userId === userId);
-    if (!isMember) {
-      throw new ForbiddenException('You are not a member of this room');
     }
 
     const user = await this.prisma.user.findUnique({
@@ -111,17 +110,37 @@ export class RoomService {
 
     const alreadyMember = room.members.some((m) => m.userId === user.id);
     if (alreadyMember) {
-      return this.findOne(roomId, userId);
+      return this.findOne(roomId, user.id);
     }
 
     await this.prisma.roomMember.create({
       data: { roomId, userId: user.id },
     });
 
-    return this.findOne(roomId, userId);
+    return this.findOne(roomId, user.id);
   }
 
-  async removeMember(roomId: string, memberId: string, userId: string) {
+  async removeMember(roomId: string, memberId: string) {
+    const room = await this.prisma.room.findUnique({
+      where: { id: roomId },
+      include: { members: true },
+    });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    const target = room.members.find((m) => m.userId === memberId);
+    if (!target) {
+      throw new NotFoundException('Member not found');
+    }
+
+    await this.prisma.roomMember.delete({
+      where: { roomId_userId: { roomId, userId: memberId } },
+    });
+  }
+
+  async leave(roomId: string, userId: string) {
     const room = await this.prisma.room.findUnique({
       where: { id: roomId },
       include: { members: true },
@@ -136,13 +155,8 @@ export class RoomService {
       throw new ForbiddenException('You are not a member of this room');
     }
 
-    const target = room.members.find((m) => m.userId === memberId);
-    if (!target) {
-      throw new NotFoundException('Member not found');
-    }
-
     await this.prisma.roomMember.delete({
-      where: { roomId_userId: { roomId, userId: memberId } },
+      where: { roomId_userId: { roomId, userId } },
     });
   }
 
