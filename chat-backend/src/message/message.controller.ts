@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -49,6 +50,17 @@ export class MessageController {
   @ApiOkResponse({ description: 'Message details' })
   findOne(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.messageService.findOne(id, userId);
+  }
+
+  @Patch('messages/:id')
+  @ApiOperation({ summary: 'Edit your own message' })
+  @ApiOkResponse({ description: 'Message updated' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: CreateMessageDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.messageService.update(id, dto, userId);
   }
 
   @Delete('messages/:id')
