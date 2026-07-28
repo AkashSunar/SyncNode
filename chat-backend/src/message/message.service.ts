@@ -83,6 +83,28 @@ export class MessageService {
     return message;
   }
 
+  async update(id: string, dto: CreateMessageDto, userId: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { id },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    if (message.senderId !== userId) {
+      throw new ForbiddenException('You can only edit your own messages');
+    }
+
+    return this.prisma.message.update({
+      where: { id },
+      data: { content: dto.content },
+      include: {
+        sender: { select: { id: true, username: true, email: true } },
+      },
+    });
+  }
+
   async remove(id: string, userId: string) {
     const message = await this.prisma.message.findUnique({
       where: { id },
